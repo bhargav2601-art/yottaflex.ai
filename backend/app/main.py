@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pathlib import Path
 from .db import init_db, connect, DB_PATH
-from .domain import issue, verify, revoke
+from .domain import issue, verify, revoke, verify_external
 from .seed import seed
 from .validate import build_report
 
@@ -18,6 +18,9 @@ def startup(): init_db()
 class IssueIn(BaseModel): learner_id:str; course_id:str
 class RevokeIn(BaseModel): reason_code:str=Field(min_length=2,max_length=64); explanation:str=Field(min_length=5,max_length=500)
 class GenerateIn(BaseModel): scale:str='starter'; seed:int=20261022
+class ExternalVerifyIn(BaseModel):
+ provider_id:str=Field(min_length=1,max_length=80,pattern=r'^[A-Za-z0-9_.-]+$')
+ certificate_reference:str=Field(min_length=1,max_length=200)
 def rows(q,args=()):
  with connect() as c:return [dict(x) for x in c.execute(q,args).fetchall()]
 @app.get('/')
@@ -64,7 +67,13 @@ def revoke_credential(cid:str,body:RevokeIn):
  except LookupError as e:raise HTTPException(404,str(e))
 @app.post('/api/v1/public/verify/{cid}')
 def public_verify(cid:str):
- d,details=verify(cid); return {'credential_id':cid,'decision':d,'details':details if d=='VALID' else {}}
+ d,details=verify(cid); return {'credential_id':cid,'decision':d,'classification':'CREDENTIA_KNOWN' if d!='UNKNOWN' else 'CREDENTIA_UNKNOWN','details':details if d=='VALID' else {}}
+@app.post('/api/v1/public/verify-external')
+def public_verify_external(body:ExternalVerifyIn):
+ decision,details=verify_external(body.provider_id,body.certificate_reference)
+ # Do not echo a caller's external certificate reference: it may be sensitive
+ # and is unnecessary to communicate this integration's decision.
+ return {'provider_id':body.provider_id,'decision':decision,'classification':'EXTERNAL_CERTIFICATE','details':details}
 @app.get('/api/v1/audit')
 def audit(q:str='',event_type:str='',actor:str='',page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100)):
  clauses=[]; args=[]

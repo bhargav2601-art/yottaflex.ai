@@ -36,6 +36,12 @@ Issuance checks the effective active course rule and latest completion: status m
 
 Payload hashes use canonical, sorted JSON and SHA-256. Each local environment creates a gitignored Ed25519 development private key and stores only the corresponding public key with the issuer. Hashes detect alteration; signatures additionally authenticate the signer when the private key is protected. This is still not production key management.
 
+### Verification boundary
+
+`/api/v1/public/verify/{credential_id}` is authoritative only for CREDENTIA-issued records. `UNKNOWN` means CREDENTIA has no record; it does not label an external certificate as fake. The optional `/api/v1/public/verify-external` endpoint requires an explicitly authorized provider adapter. This local build configures none, so external requests return `EXTERNAL_UNSUPPORTED`, not a validity claim. CREDENTIA does not treat uploaded files, images, extracted certificate numbers, or unverified QR codes as proof of authenticity.
+
+This data model has no credential-expiry field, so `EXPIRED` is not emitted or implied by the local verifier.
+
 ## Data and validation
 
 Starter generation is deterministic for source records and issued credential payloads using seed `20261022`; it creates 80 learners, 12 courses, 40 qualifying completions/credentials and 30 requests. Full scale targets 20,000 learners, 1,000 courses, 10,000 credentials and 5,000 requests. Four isolated labelled anomaly fixtures document the required negative scenarios without corrupting operational records. Ground truth never participates in verification decisions.

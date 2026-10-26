@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from .db import connect
 
 KEY_PATH = Path(os.getenv('CREDENTIA_SIGNING_KEY', 'data/credentia-dev-ed25519.pem'))
+EXTERNAL_PROVIDERS = {}
 def now(): return datetime.now(timezone.utc).isoformat()
 def canonical(row):
     return json.dumps({k: row[k] for k in ('id','learner_id','course_id','issuer_id','issued_at')}, sort_keys=True, separators=(',', ':'))
@@ -65,6 +66,36 @@ def verify(cid, requested_at=None):
         timestamp=requested_at or now()
         c.execute('INSERT INTO verification_requests VALUES(?,?,?,?,?)',(f'VER-2026-{n:06d}',cid if row else None,decision,timestamp,'local')); audit(c,'CREDENTIAL_VERIFIED','credential',cid,'public',json.dumps({'decision':decision}),timestamp)
         return decision,details
+
+def register_external_provider(provider_id, verifier, *, authorized=False):
+    """Register an explicitly authorized provider adapter.
+
+    No adapter is registered in local CREDENTIA. Adapters are deliberately
+    code/configuration owned, never inferred from a PDF, image, QR payload, or
+    a submitted certificate number.
+    """
+    if not authorized:
+        raise ValueError('External provider registration requires explicit authorization')
+    EXTERNAL_PROVIDERS[provider_id] = verifier
+
+def verify_external(provider_id, certificate_reference):
+    """Verify only through an authorized integration; never guess authenticity."""
+    verifier = EXTERNAL_PROVIDERS.get(provider_id)
+    if not verifier:
+        return 'EXTERNAL_UNSUPPORTED', {
+            'provider_id': provider_id,
+            'message': 'No trusted verification integration is configured for this provider.'
+        }
+    result = verifier(certificate_reference)
+    if result is True:
+        return 'EXTERNAL_VERIFIED', {
+            'provider_id': provider_id,
+            'message': 'The authorized provider integration verified this certificate.'
+        }
+    return 'EXTERNAL_UNVERIFIED', {
+        'provider_id': provider_id,
+        'message': 'The authorized provider integration could not verify this certificate.'
+    }
 def revoke(cid, reason_code, explanation, actor='admin'):
     with connect() as c:
         row=c.execute('SELECT status FROM credentials WHERE id=?',(cid,)).fetchone()

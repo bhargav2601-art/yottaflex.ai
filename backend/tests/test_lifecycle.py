@@ -3,11 +3,12 @@ from fastapi.testclient import TestClient
 from backend.app import db
 from backend.app.main import app
 from backend.app.seed import seed
-from backend.app.domain import verify, revoke, issue
+from backend.app.domain import verify, revoke, issue, EXTERNAL_PROVIDERS, register_external_provider, verify_external
 
 @pytest.fixture(autouse=True)
 def isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(db,'DB_PATH',tmp_path/'test.db')
+    EXTERNAL_PROVIDERS.clear()
     seed('starter',20261022)
 
 def test_valid_then_revoked():
@@ -30,6 +31,23 @@ def test_signature_cannot_be_recomputed_from_public_data():
     with db.connect() as c:
         c.execute("UPDATE credentials SET signature='bad' WHERE id='CRD-2026-000001'")
     assert verify('CRD-2026-000001')[0]=='TAMPERED'
+
+def test_untrusted_issuer_is_distinct_from_unknown():
+    with db.connect() as c:
+        c.execute("UPDATE issuers SET active=0 WHERE id='ISS-PRIMARY'")
+    assert verify('CRD-2026-000001')[0] == 'INVALID_ISSUER'
+    assert verify('CRD-NOT-REGISTERED')[0] == 'UNKNOWN'
+
+def test_external_provider_boundary_requires_authorized_adapter():
+    EXTERNAL_PROVIDERS.clear()
+    decision, details = verify_external('other-academy', 'EXT-123')
+    assert decision == 'EXTERNAL_UNSUPPORTED'
+    assert 'No trusted' in details['message']
+    with pytest.raises(ValueError):
+        register_external_provider('other-academy', lambda _: True)
+    register_external_provider('other-academy', lambda ref: ref == 'EXT-123', authorized=True)
+    assert verify_external('other-academy', 'EXT-123')[0] == 'EXTERNAL_VERIFIED'
+    assert verify_external('other-academy', 'EXT-404')[0] == 'EXTERNAL_UNVERIFIED'
 
 def test_seed_is_reproducible_but_seed_sensitive():
     with db.connect() as c:
@@ -64,3 +82,7 @@ def test_operational_api_details_filters_and_validation():
         assert audit['total'] == 40 and len(audit['items']) == 3
         report = client.get('/api/v1/validation').json()
         assert report['records_checked'] > 0 and report['payload_integrity_failures'] == 0
+        unknown = client.post('/api/v1/public/verify/CRD-NOT-REGISTERED').json()
+        assert unknown['decision'] == 'UNKNOWN' and unknown['classification'] == 'CREDENTIA_UNKNOWN'
+        external = client.post('/api/v1/public/verify-external', json={'provider_id':'not-configured','certificate_reference':'EXT-1'}).json()
+        assert external['decision'] == 'EXTERNAL_UNSUPPORTED'
