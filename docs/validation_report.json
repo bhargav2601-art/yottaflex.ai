@@ -1,0 +1,19 @@
+{
+  "row_counts": {
+    "issuers": 1,
+    "learners": 80,
+    "courses": 12,
+    "credential_rules": 12,
+    "completions": 40,
+    "credentials": 40,
+    "verification_requests": 30,
+    "revocations": 0,
+    "audit_events": 71,
+    "anomaly_fixtures": 4
+  },
+  "duplicate_credential_ids": 0,
+  "eligibility_violations": 0,
+  "foreign_key_violations": 0,
+  "payload_integrity_failures": 0,
+  "anomaly_fixtures": 4
+}
