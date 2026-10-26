@@ -42,6 +42,10 @@ Starter generation is deterministic for source records and issued credential pay
 
 `make validate` performs row-count, FK, duplicate-ID, eligibility and fixture checks. Generated operational databases are ignored by Git.
 
+## Operational screens
+
+The registry, learner directory, and audit explorer use server-side pagination. The audit explorer supports entity/event-ID search plus event-type and actor filters. Credential details include the issuer, completion evidence, issuance rule version, verification history, revocation record when present, and append-only audit history. The dashboard derives lifecycle, verification-outcome, and issuance-activity summaries from persisted records; its verification success rate is `VALID` decisions divided by all recorded verification requests.
+
 ## Limitations and security
 
 There is no user authentication, distributed rate limiting, Alembic migration chain, background-job queue, CSV export, or production key store in this concise local build. SQLite application controls make audit records append-only through the service/UI but cannot make a compromised database tamper-proof. Do not use the generated development key or synthetic learner data in production.

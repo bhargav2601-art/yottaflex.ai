@@ -1,5 +1,7 @@
 import pytest
+from fastapi.testclient import TestClient
 from backend.app import db
+from backend.app.main import app
 from backend.app.seed import seed
 from backend.app.domain import verify, revoke, issue
 
@@ -49,3 +51,16 @@ def test_unknown_and_unique_identifier():
     assert verify('CRD-nope')[0]=='UNKNOWN'
     with db.connect() as c:
         with pytest.raises(Exception): c.execute("INSERT INTO credentials(id,learner_id,course_id,completion_id,issuer_id,rule_id,issued_at,payload_hash,signature,status) SELECT id,learner_id,course_id,completion_id,issuer_id,rule_id,issued_at,payload_hash,signature,status FROM credentials WHERE id='CRD-2026-000001'")
+
+def test_operational_api_details_filters_and_validation():
+    with TestClient(app) as client:
+        credentials = client.get('/api/v1/credentials?page_size=5').json()
+        assert credentials['total'] == 40 and len(credentials['items']) == 5
+        detail = client.get('/api/v1/credentials/CRD-2026-000001').json()
+        assert detail['issuer']['name'] == 'Credentia Academy'
+        assert detail['completion']['status'] == 'COMPLETED'
+        assert detail['rule']['version'] == 1
+        audit = client.get('/api/v1/audit?event_type=CREDENTIAL_ISSUED&page_size=3').json()
+        assert audit['total'] == 40 and len(audit['items']) == 3
+        report = client.get('/api/v1/validation').json()
+        assert report['records_checked'] > 0 and report['payload_integrity_failures'] == 0
