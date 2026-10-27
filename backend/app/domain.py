@@ -62,7 +62,9 @@ def verify(cid, requested_at=None):
             elif row['status']=='REVOKED': decision='REVOKED'
             else: decision='VALID'
             details={'course_id':row['course_id'],'issued_at':row['issued_at']}
-        n=c.execute('SELECT COUNT(*) FROM verification_requests').fetchone()[0]+1
+        # As with credential issuance, use SQLite's row-id allocation rather than
+        # COUNT(*) so simultaneous requests cannot select the same ID.
+        n=c.execute('INSERT INTO verification_sequence DEFAULT VALUES').lastrowid
         timestamp=requested_at or now()
         c.execute('INSERT INTO verification_requests VALUES(?,?,?,?,?)',(f'VER-2026-{n:06d}',cid if row else None,decision,timestamp,'local')); audit(c,'CREDENTIAL_VERIFIED','credential',cid,'public',json.dumps({'decision':decision}),timestamp)
         return decision,details

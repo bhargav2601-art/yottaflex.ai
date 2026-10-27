@@ -6,14 +6,15 @@
     "credential_rules": 12,
     "completions": 40,
     "credentials": 40,
-    "verification_requests": 31,
+    "verification_requests": 43,
     "revocations": 0,
-    "audit_events": 72,
+    "audit_events": 84,
     "anomaly_fixtures": 4
   },
-  "records_checked": 292,
+  "records_checked": 316,
   "duplicate_credential_ids": 0,
   "eligibility_violations": 0,
+  "issuance_before_completion": 0,
   "foreign_key_violations": 0,
   "payload_integrity_failures": 0,
   "anomaly_fixtures": 4

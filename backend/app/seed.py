@@ -5,7 +5,7 @@ from .domain import issue, audit, public_key_text, verify
 def seed(scale='starter', seed=20261022):
  init_db(); r=random.Random(seed); counts={'starter':(80,12,40,30),'full':(20000,1000,10000,5000)}; learners,courses,creds,verifications=counts[scale]
  with connect() as c:
-  for t in ['anomaly_fixtures','audit_events','verification_requests','revocations','credentials','credential_sequence','completions','credential_rules','courses','learners','issuers']: c.execute(f'DELETE FROM {t}')
+  for t in ['anomaly_fixtures','audit_events','verification_requests','verification_sequence','revocations','credentials','credential_sequence','completions','credential_rules','courses','learners','issuers']: c.execute(f'DELETE FROM {t}')
   c.execute('INSERT INTO issuers VALUES(?,?,?,?,?)',('ISS-PRIMARY','Credentia Academy',public_key_text(),1,'2026-01-01T00:00:00+00:00'))
   for i in range(1,courses+1):
    cid=f'CRS-{i:04d}'; c.execute('INSERT INTO courses VALUES(?,?,?,1)',(cid,f'CRED-{i:03d}',f'Credential Systems {i}')); c.execute('INSERT INTO credential_rules VALUES(?,?,?,?,?,?,?,?)',(f'RUL-{i:04d}',cid,70,'COMPLETED','2025-01-01',None,1,1))

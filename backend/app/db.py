@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS completions (id TEXT PRIMARY KEY, learner_id TEXT NOT
 CREATE INDEX IF NOT EXISTS completion_lookup ON completions(learner_id, course_id);
 CREATE TABLE IF NOT EXISTS credentials (id TEXT PRIMARY KEY, learner_id TEXT NOT NULL REFERENCES learners(id) ON DELETE RESTRICT, course_id TEXT NOT NULL REFERENCES courses(id) ON DELETE RESTRICT, completion_id TEXT NOT NULL UNIQUE REFERENCES completions(id) ON DELETE RESTRICT, issuer_id TEXT NOT NULL REFERENCES issuers(id) ON DELETE RESTRICT, rule_id TEXT NOT NULL REFERENCES credential_rules(id) ON DELETE RESTRICT, issued_at TEXT NOT NULL, payload_hash TEXT NOT NULL, signature TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'ISSUED' CHECK(status IN ('ISSUED','REVOKED')));
 CREATE TABLE IF NOT EXISTS credential_sequence (id INTEGER PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS verification_sequence (id INTEGER PRIMARY KEY);
 CREATE INDEX IF NOT EXISTS credential_lookup ON credentials(learner_id, course_id);
 CREATE TABLE IF NOT EXISTS revocations (id TEXT PRIMARY KEY, credential_id TEXT NOT NULL UNIQUE REFERENCES credentials(id) ON DELETE RESTRICT, reason_code TEXT NOT NULL, explanation TEXT NOT NULL, revoked_at TEXT NOT NULL, actor TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS verification_requests (id TEXT PRIMARY KEY, credential_id TEXT, decision TEXT NOT NULL, requested_at TEXT NOT NULL, requester_ip TEXT NOT NULL DEFAULT 'local');
@@ -26,4 +27,12 @@ def connect():
     c=sqlite3.connect(DB_PATH); c.row_factory=sqlite3.Row; c.execute('PRAGMA foreign_keys=ON'); return c
 
 def init_db():
-    with connect() as c: c.executescript(SCHEMA)
+    with connect() as c:
+        c.executescript(SCHEMA)
+        max_cred = c.execute("SELECT MAX(CAST(substr(id, 10) AS INTEGER)) FROM credentials").fetchone()[0]
+        if max_cred:
+            c.execute("INSERT OR IGNORE INTO credential_sequence(id) VALUES(?)", (max_cred,))
+        max_ver = c.execute("SELECT MAX(CAST(substr(id, 10) AS INTEGER)) FROM verification_requests").fetchone()[0]
+        if max_ver:
+            c.execute("INSERT OR IGNORE INTO verification_sequence(id) VALUES(?)", (max_ver,))
+

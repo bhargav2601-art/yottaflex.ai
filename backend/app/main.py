@@ -8,13 +8,20 @@ from .domain import issue, verify, revoke, verify_external
 from .seed import seed
 from .validate import build_report
 
+from contextlib import asynccontextmanager
+
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / 'frontend'
-app=FastAPI(title='CREDENTIA API',version='1.0.0')
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+app=FastAPI(title='CREDENTIA API',version='1.0.0',lifespan=lifespan)
 # Resolve from this module, not the caller's current directory. This keeps the
 # documented server URL working when Uvicorn is launched from another folder.
 app.mount('/assets',StaticFiles(directory=FRONTEND_DIR),name='assets')
-@app.on_event('startup')
-def startup(): init_db()
+
 class IssueIn(BaseModel): learner_id:str; course_id:str
 class RevokeIn(BaseModel): reason_code:str=Field(min_length=2,max_length=64); explanation:str=Field(min_length=5,max_length=500)
 class GenerateIn(BaseModel): scale:str='starter'; seed:int=20261022
